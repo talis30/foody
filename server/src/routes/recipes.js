@@ -3,8 +3,8 @@ const router = express.Router();
 const Recipe = require('../models/Recipe');
 const { protect, optionalAuth } = require('../middleware/auth');
 
-// Get all recipes (with optional search) - Public
-router.get('/', async (req, res) => {
+// Get all recipes (with optional search) - Public (filters private recipes)
+router.get('/', optionalAuth, async (req, res) => {
   try {
     const { search } = req.query;
     let query = {};
@@ -21,6 +21,24 @@ router.get('/', async (req, res) => {
       };
     }
 
+    // Filter private recipes: show only if user is owner or admin
+    if (req.user) {
+      if (req.user.role !== 'admin') {
+        // Regular user: show public recipes + their own private recipes
+        query.$and = query.$and || [];
+        query.$and.push({
+          $or: [
+            { isPrivate: { $ne: true } },
+            { userId: req.user.userId }
+          ]
+        });
+      }
+      // Admin sees all recipes
+    } else {
+      // Not logged in: only show public recipes
+      query.isPrivate = { $ne: true };
+    }
+
     const recipes = await Recipe.find(query).sort({ createdAt: -1 });
     res.json(recipes);
   } catch (err) {
@@ -31,12 +49,8 @@ router.get('/', async (req, res) => {
 // Get one recipe - Public (with view counter)
 router.get('/:id', optionalAuth, async (req, res) => {
   try {
-    // Increment view count and get updated recipe
-    const recipe = await Recipe.findByIdAndUpdate(
-      req.params.id,
-      { $inc: { views: 1 } },
-      { new: true }
-    );
+    // Get recipe first to check privacy
+    const recipe = await Recipe.findById(req.params.id);
 
     if (!recipe) {
       return res.status(404).json({ message: 'Recipe not found' });
@@ -47,6 +61,15 @@ router.get('/:id', optionalAuth, async (req, res) => {
       req.user.userId === recipe.userId ||
       req.user.role === 'admin'
     );
+
+    // Check if recipe is private and user is not allowed
+    if (recipe.isPrivate && !isOwnerOrAdmin) {
+      return res.status(403).json({ message: 'This recipe is private' });
+    }
+
+    // Increment view count
+    recipe.views = (recipe.views || 0) + 1;
+    await recipe.save();
 
     // Convert to object and remove views if not owner/admin
     const recipeObj = recipe.toObject();
@@ -76,7 +99,10 @@ router.post('/', protect, async (req, res) => {
     difficulty: req.body.difficulty,
     spiciness: req.body.spiciness,
     image: req.body.image,
-    userId: req.user.userId
+    userId: req.user.userId,
+    isVegan: req.body.isVegan,
+    isVegetarian: req.body.isVegetarian,
+    isPrivate: req.body.isPrivate
   });
 
   try {

@@ -82,6 +82,10 @@ const recipeSchema = new mongoose.Schema({
   isVegetarian: {
     type: Boolean,
     default: false
+  },
+  isPrivate: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true

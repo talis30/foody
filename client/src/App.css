@@ -50,6 +50,18 @@ body::before {
   z-index: 1;
 }
 
+@media (max-width: 768px) {
+  .main-content {
+    padding-top: 65px;
+  }
+}
+
+@media (max-width: 480px) {
+  .main-content {
+    padding-top: 55px;
+  }
+}
+
 /* Page wrapper for centering */
 .page-wrapper {
   min-height: 100vh;
@@ -105,16 +117,48 @@ body::before {
 }
 
 /* Search Bar */
+.search-section {
+  margin-bottom: 25px;
+}
+
 .search-bar {
   display: flex;
   gap: 10px;
-  margin-bottom: 25px;
+  margin-bottom: 12px;
   padding: 8px;
   background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.my-recipes-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.3s;
+  width: fit-content;
+}
+
+.my-recipes-checkbox:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.my-recipes-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #667eea;
+}
+
+.my-recipes-checkbox span {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
 }
 
 .search-bar input {
@@ -700,6 +744,16 @@ button.gift-btn:hover {
   border: 1px solid rgba(139, 195, 74, 0.3);
 }
 
+.dietary-tag.private {
+  background: rgba(156, 39, 176, 0.2);
+  color: #ce93d8;
+  border: 1px solid rgba(156, 39, 176, 0.3);
+}
+
+.private-checkbox span {
+  color: #ce93d8;
+}
+
 .recipe-form textarea {
   resize: vertical;
   min-height: 120px;
@@ -826,6 +880,47 @@ button.gift-btn:hover {
   margin-bottom: 10px;
   padding-bottom: 8px;
   border-bottom: 1px dashed #c4a77d;
+}
+
+.gift-card-image {
+  width: 100%;
+  max-height: 200px;
+  overflow: hidden;
+  border-radius: 12px;
+  margin-top: 15px;
+}
+
+.gift-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gift-include-image-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 15px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  cursor: pointer;
+  margin-bottom: 15px;
+  transition: background 0.3s;
+}
+
+.gift-include-image-checkbox:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.gift-include-image-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.gift-include-image-checkbox span {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
 }
 
 .gift-card-title {
@@ -1214,6 +1309,67 @@ button.gift-btn:hover {
 .delete-image-btn:hover {
   background: #dc2626;
   transform: scale(1.1);
+}
+
+.image-actions {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.image-actions .delete-image-btn,
+.image-actions .set-main-btn {
+  position: static;
+}
+
+.set-main-btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(100, 100, 100, 0.8);
+  color: #ccc;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  border: none;
+  transition: all 0.3s;
+}
+
+.set-main-btn:hover {
+  background: rgba(250, 204, 21, 0.9);
+  color: white;
+  transform: scale(1.1);
+}
+
+.main-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 24px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+.thumbnail.is-main {
+  border-color: #eab308;
+}
+
+.thumbnail-main-badge {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  font-size: 12px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+
+.thumbnail {
+  position: relative;
 }
 
 .thumbnail-row {

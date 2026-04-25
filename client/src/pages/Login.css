@@ -30,6 +30,33 @@
   text-align: center;
 }
 
+.login-success {
+  background: #efe;
+  color: #060;
+  padding: 0.75rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.forgot-password-link {
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.forgot-password-link button {
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 0.9rem;
+  text-decoration: underline;
+}
+
+.forgot-password-link button:hover {
+  color: #4CAF50;
+}
+
 .login-form .form-group {
   margin-bottom: 1rem;
 }

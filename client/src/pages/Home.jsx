@@ -195,23 +195,46 @@ function SpicinessMeter({ level, onChange, editable = false }) {
 }
 
 // Image Gallery Component
-function ImageGallery({ images, onDelete, editable = false }) {
-  const [activeIndex, setActiveIndex] = useState(0)
+function ImageGallery({ images, onDelete, onSetMain, editable = false }) {
+  const [activeId, setActiveId] = useState(null)
 
   if (!images || images.length === 0) return null
+
+  // Find current image by ID, or default to first image
+  const currentImage = images.find(img => img._id === activeId) || images[0]
+  const activeIndex = images.findIndex(img => img._id === currentImage._id)
+
+  const handleSetMain = async (imageId) => {
+    await onSetMain(imageId)
+    setActiveId(imageId) // Stay on the image we just set as main
+  }
 
   return (
     <div className="image-gallery">
       <div className="main-image">
-        <img src={`${API_URL}/images/${images[activeIndex]._id}`} alt="Recipe" />
+        <img src={`${API_URL}/images/${currentImage._id}`} alt="Recipe" />
         {editable && (
-          <button
-            className="delete-image-btn"
-            onClick={() => onDelete(images[activeIndex]._id)}
-            title="מחק תמונה"
-          >
-            ✕
-          </button>
+          <div className="image-actions">
+            <button
+              className="delete-image-btn"
+              onClick={() => onDelete(currentImage._id)}
+              title="מחק תמונה"
+            >
+              ✕
+            </button>
+            {images.length > 1 && !currentImage.isMain && (
+              <button
+                className="set-main-btn"
+                onClick={() => handleSetMain(currentImage._id)}
+                title="הגדר כתמונה ראשית"
+              >
+                ☆
+              </button>
+            )}
+          </div>
+        )}
+        {currentImage.isMain && (
+          <span className="main-badge" title="תמונה ראשית">⭐</span>
         )}
       </div>
       {images.length > 1 && (
@@ -219,10 +242,11 @@ function ImageGallery({ images, onDelete, editable = false }) {
           {images.map((img, idx) => (
             <div
               key={img._id}
-              className={`thumbnail ${idx === activeIndex ? 'active' : ''}`}
-              onClick={() => setActiveIndex(idx)}
+              className={`thumbnail ${idx === activeIndex ? 'active' : ''} ${img.isMain ? 'is-main' : ''}`}
+              onClick={() => setActiveId(img._id)}
             >
               <img src={`${API_URL}/images/${img._id}`} alt={`Thumbnail ${idx + 1}`} />
+              {img.isMain && <span className="thumbnail-main-badge">⭐</span>}
             </div>
           ))}
         </div>
@@ -232,7 +256,7 @@ function ImageGallery({ images, onDelete, editable = false }) {
 }
 
 // Image Upload Component
-function ImageUploader({ recipeId, images, onUpload, onDelete, authFetch }) {
+function ImageUploader({ recipeId, images, onUpload, onDelete, onSetMain, authFetch }) {
   const fileInputRef = useRef(null)
   const [uploading, setUploading] = useState(false)
 
@@ -276,7 +300,7 @@ function ImageUploader({ recipeId, images, onUpload, onDelete, authFetch }) {
 
   return (
     <div className="image-uploader">
-      <ImageGallery images={images} onDelete={onDelete} editable={true} />
+      <ImageGallery images={images} onDelete={onDelete} onSetMain={onSetMain} editable={true} />
 
       {canUpload && (
         <div className="upload-area">
@@ -316,8 +340,10 @@ function Home() {
   const [giftMessage, setGiftMessage] = useState('')
   const [giftEmail, setGiftEmail] = useState('')
   const [sendingEmail, setSendingEmail] = useState(false)
+  const [includeRecipeImage, setIncludeRecipeImage] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchInput, setSearchInput] = useState('')
+  const [showMyRecipesOnly, setShowMyRecipesOnly] = useState(false)
   const [recipeImages, setRecipeImages] = useState([])
   const [editImages, setEditImages] = useState([])
   const [customSpices, setCustomSpices] = useState([])
@@ -335,7 +361,8 @@ function Home() {
     difficulty: 3,
     spiciness: 0,
     isVegan: false,
-    isVegetarian: false
+    isVegetarian: false,
+    isPrivate: false
   })
 
   useEffect(() => {
@@ -362,7 +389,15 @@ function Home() {
       const url = searchQuery
         ? `${API_URL}/recipes?search=${encodeURIComponent(searchQuery)}`
         : `${API_URL}/recipes`
-      const res = await fetch(url)
+
+      // Include auth token to properly filter private recipes
+      const headers = {}
+      const token = localStorage.getItem('token')
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+
+      const res = await fetch(url, { headers })
       const data = await res.json()
 
       // Fetch first image for each recipe (for thumbnails)
@@ -371,7 +406,9 @@ function Home() {
           try {
             const imgRes = await fetch(`${API_URL}/images/recipe/${recipe._id}`)
             const images = await imgRes.json()
-            return { ...recipe, thumbnailId: images[0]?._id }
+            // Use main image for thumbnail, or first image as fallback
+            const mainImage = images.find(img => img.isMain) || images[0]
+            return { ...recipe, thumbnailId: mainImage?._id }
           } catch {
             return recipe
           }
@@ -488,7 +525,8 @@ function Home() {
       difficulty: recipe.difficulty || 3,
       spiciness: recipe.spiciness || 0,
       isVegan: recipe.isVegan || false,
-      isVegetarian: recipe.isVegetarian || false
+      isVegetarian: recipe.isVegetarian || false,
+      isPrivate: recipe.isPrivate || false
     })
     // Load any custom spices from the recipe
     const existingCustom = (recipe.spices || [])
@@ -535,6 +573,15 @@ function Home() {
     }
   }
 
+  const handleSetMainImage = async (imageId) => {
+    try {
+      await authFetch(`${API_URL}/images/${imageId}/main`, { method: 'PATCH' })
+      fetchEditImages(editingId)
+    } catch (err) {
+      console.error('Error setting main image:', err)
+    }
+  }
+
   const resetForm = () => {
     setForm({
       title: '',
@@ -549,7 +596,8 @@ function Home() {
       difficulty: 3,
       spiciness: 0,
       isVegan: false,
-      isVegetarian: false
+      isVegetarian: false,
+      isPrivate: false
     })
     setEditingId(null)
     setShowForm(false)
@@ -780,6 +828,16 @@ function Home() {
                       <div className="gift-card-message">"{giftMessage}"</div>
                     )}
 
+                    {includeRecipeImage && recipeImages.length > 0 && (
+                      <div className="gift-card-image">
+                        <img
+                          src={`${API_URL}/images/${(recipeImages.find(img => img.isMain) || recipeImages[0])._id}`}
+                          alt={selectedRecipe.title}
+                          crossOrigin="anonymous"
+                        />
+                      </div>
+                    )}
+
                     <div className="gift-card-footer">בתיאבון! 🍽️</div>
                   </div>
                 </div>
@@ -801,6 +859,17 @@ function Home() {
                   onChange={(e) => setGiftMessage(e.target.value)}
                   rows={2}
                 />
+
+                {recipeImages.length > 0 && (
+                  <label className="gift-include-image-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={includeRecipeImage}
+                      onChange={(e) => setIncludeRecipeImage(e.target.checked)}
+                    />
+                    <span>הוסף תמונה ראשית</span>
+                  </label>
+                )}
 
                 <div className="gift-modal-actions">
                   <button onClick={downloadAsImage} className="gift-action-btn">
@@ -832,7 +901,7 @@ function Home() {
               חזרה למתכונים
             </button>
             <div className="detail-actions">
-              <button className="gift-btn" onClick={() => setShowGiftCard(true)}>
+              <button className="gift-btn" onClick={() => { setIncludeRecipeImage(false); setShowGiftCard(true); }}>
                 🎁 שלח כמתנה
               </button>
               {isAuthenticated && (user?.userId === selectedRecipe.userId || user?.role === 'admin') && (
@@ -860,6 +929,9 @@ function Home() {
                 )}
                 {selectedRecipe.isVegetarian && (
                   <span className="dietary-tag vegetarian">🥬 צמחוני</span>
+                )}
+                {selectedRecipe.isPrivate && (
+                  <span className="dietary-tag private">🔒 פרטי</span>
                 )}
               </div>
             </header>
@@ -1036,6 +1108,14 @@ function Home() {
                 />
                 <span>🥬 צמחוני</span>
               </label>
+              <label className="checkbox-label private-checkbox">
+                <input
+                  type="checkbox"
+                  checked={form.isPrivate}
+                  onChange={(e) => setForm({ ...form, isPrivate: e.target.checked })}
+                />
+                <span>🔒 פרטי</span>
+              </label>
             </div>
             <textarea
               placeholder="מצרכים (כל מצרך בשורה נפרדת)"
@@ -1064,6 +1144,7 @@ function Home() {
                 images={editImages}
                 onUpload={() => fetchEditImages(editingId)}
                 onDelete={handleDeleteEditImage}
+                onSetMain={handleSetMainImage}
                 authFetch={authFetch}
               />
             </section>
@@ -1085,20 +1166,32 @@ function Home() {
           )}
         </div>
 
-        <form className="search-bar" onSubmit={handleSearch}>
-          <input
-            type="text"
-            placeholder="חיפוש מתכון..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-          />
-          <button type="submit">🔍</button>
-          {searchQuery && (
-            <button type="button" className="clear-search" onClick={clearSearch}>
-              ✕
-            </button>
+        <div className="search-section">
+          <form className="search-bar" onSubmit={handleSearch}>
+            <input
+              type="text"
+              placeholder="חיפוש מתכון..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+            />
+            <button type="submit">🔍</button>
+            {searchQuery && (
+              <button type="button" className="clear-search" onClick={clearSearch}>
+                ✕
+              </button>
+            )}
+          </form>
+          {isAuthenticated && (
+            <label className="my-recipes-checkbox">
+              <input
+                type="checkbox"
+                checked={showMyRecipesOnly}
+                onChange={(e) => setShowMyRecipesOnly(e.target.checked)}
+              />
+              <span>המתכונים שלי בלבד</span>
+            </label>
           )}
-        </form>
+        </div>
 
         {searchQuery && (
           <p className="search-results-info">
@@ -1108,13 +1201,17 @@ function Home() {
 
         {loading ? (
           <p className="message">טוען...</p>
-        ) : recipes.length === 0 ? (
-          <p className="message">
-            {searchQuery ? 'לא נמצאו מתכונים. נסה חיפוש אחר.' : 'אין עדיין מתכונים. הוסף את המתכון הראשון שלך!'}
-          </p>
-        ) : (
-          <div className="recipe-grid">
-            {recipes.map((recipe) => (
+        ) : (() => {
+          const filteredRecipes = showMyRecipesOnly && user
+            ? recipes.filter(r => r.userId === user.userId)
+            : recipes
+          return filteredRecipes.length === 0 ? (
+            <p className="message">
+              {showMyRecipesOnly ? 'אין לך מתכונים עדיין.' : searchQuery ? 'לא נמצאו מתכונים. נסה חיפוש אחר.' : 'אין עדיין מתכונים. הוסף את המתכון הראשון שלך!'}
+            </p>
+          ) : (
+            <div className="recipe-grid">
+              {filteredRecipes.map((recipe) => (
               <div
                 key={recipe._id}
                 className="recipe-card"
@@ -1146,12 +1243,14 @@ function Home() {
                     )}
                     {recipe.isVegan && <span className="dietary-tag vegan">🌱</span>}
                     {recipe.isVegetarian && <span className="dietary-tag vegetarian">🥬</span>}
+                    {recipe.isPrivate && <span className="dietary-tag private">🔒</span>}
                   </div>
                 </div>
               </div>
             ))}
           </div>
-        )}
+          )
+        })()}
       </div>
     </div>
   )

@@ -3,12 +3,17 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import './Login.css'
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+
 function Login() {
   const [isRegister, setIsRegister] = useState(false)
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [forgotEmail, setForgotEmail] = useState('')
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
 
   const { login, register } = useAuth()
@@ -17,6 +22,7 @@ function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    setSuccess('')
     setLoading(true)
 
     try {
@@ -33,16 +39,88 @@ function Login() {
     }
   }
 
+  const handleForgotPassword = async (e) => {
+    e.preventDefault()
+    setError('')
+    setSuccess('')
+    setLoading(true)
+
+    try {
+      const res = await fetch(`${API_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail })
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.message || 'שגיאה בשליחת האימייל')
+      }
+
+      setSuccess(data.message)
+      setForgotEmail('')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Forgot password form
+  if (showForgotPassword) {
+    return (
+      <div className="login-page">
+        <div className="login-container">
+          <h1>שכחתי סיסמה</h1>
+
+          {error && <div className="login-error">{error}</div>}
+          {success && <div className="login-success">{success}</div>}
+
+          <form onSubmit={handleForgotPassword} className="login-form">
+            <div className="form-group">
+              <label htmlFor="forgot-email">כתובת אימייל</label>
+              <input
+                type="email"
+                id="forgot-email"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                required
+                placeholder="הזן את האימייל שלך"
+                autoComplete="email"
+              />
+            </div>
+
+            <button type="submit" disabled={loading} className="login-btn">
+              {loading ? 'שולח...' : 'שלח סיסמה חדשה'}
+            </button>
+          </form>
+
+          <div className="login-switch">
+            <p>
+              נזכרת בסיסמה?{' '}
+              <button type="button" onClick={() => { setShowForgotPassword(false); setError(''); setSuccess(''); }}>
+                חזור להתחברות
+              </button>
+            </p>
+          </div>
+
+          <Link to="/" className="back-link">חזרה למתכונים</Link>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="login-page">
       <div className="login-container">
-        <h1>{isRegister ? 'Create Account' : 'Login'}</h1>
+        <h1>{isRegister ? 'יצירת חשבון' : 'התחברות'}</h1>
 
         {error && <div className="login-error">{error}</div>}
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
-            <label htmlFor="username">Username</label>
+            <label htmlFor="username">שם משתמש</label>
             <input
               type="text"
               id="username"
@@ -55,7 +133,7 @@ function Login() {
 
           {isRegister && (
             <div className="form-group">
-              <label htmlFor="email">Email</label>
+              <label htmlFor="email">אימייל</label>
               <input
                 type="email"
                 id="email"
@@ -68,7 +146,7 @@ function Login() {
           )}
 
           <div className="form-group">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password">סיסמה</label>
             <input
               type="password"
               id="password"
@@ -80,29 +158,37 @@ function Login() {
           </div>
 
           <button type="submit" disabled={loading} className="login-btn">
-            {loading ? 'Please wait...' : (isRegister ? 'Register' : 'Login')}
+            {loading ? 'אנא המתן...' : (isRegister ? 'הרשמה' : 'התחבר')}
           </button>
         </form>
+
+        {!isRegister && (
+          <div className="forgot-password-link">
+            <button type="button" onClick={() => setShowForgotPassword(true)}>
+              שכחתי סיסמה
+            </button>
+          </div>
+        )}
 
         <div className="login-switch">
           {isRegister ? (
             <p>
-              Already have an account?{' '}
+              כבר יש לך חשבון?{' '}
               <button type="button" onClick={() => setIsRegister(false)}>
-                Login
+                התחבר
               </button>
             </p>
           ) : (
             <p>
-              Don't have an account?{' '}
+              אין לך חשבון?{' '}
               <button type="button" onClick={() => setIsRegister(true)}>
-                Register
+                הרשם
               </button>
             </p>
           )}
         </div>
 
-        <Link to="/" className="back-link">Back to recipes</Link>
+        <Link to="/" className="back-link">חזרה למתכונים</Link>
       </div>
     </div>
   )

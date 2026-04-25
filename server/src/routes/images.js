@@ -25,8 +25,8 @@ const upload = multer({
 router.get('/recipe/:recipeId', async (req, res) => {
   try {
     const images = await Image.find({ recipeId: req.params.recipeId })
-      .select('_id contentType filename order createdAt')
-      .sort({ order: 1 });
+      .select('_id contentType filename order isMain createdAt')
+      .sort({ order: 1 }); // Keep original order
     res.json(images);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -74,6 +74,9 @@ router.post('/recipe/:recipeId', protect, upload.array('images', 3), async (req,
       });
     }
 
+    // Check if there's already a main image
+    const hasMain = await Image.exists({ recipeId, isMain: true });
+
     // Save each image
     const savedImages = [];
     for (let i = 0; i < req.files.length; i++) {
@@ -83,20 +86,54 @@ router.post('/recipe/:recipeId', protect, upload.array('images', 3), async (req,
         data: file.buffer,
         contentType: file.mimetype,
         filename: file.originalname,
-        order: existingCount + i
+        order: existingCount + i,
+        isMain: !hasMain && i === 0 // First image becomes main if no main exists
       });
       const saved = await image.save();
       savedImages.push({
         _id: saved._id,
         contentType: saved.contentType,
         filename: saved.filename,
-        order: saved.order
+        order: saved.order,
+        isMain: saved.isMain
       });
     }
 
     res.status(201).json(savedImages);
   } catch (err) {
     res.status(400).json({ message: err.message });
+  }
+});
+
+// Set an image as main - Protected
+router.patch('/:id/main', protect, async (req, res) => {
+  try {
+    const image = await Image.findById(req.params.id);
+    if (!image) {
+      return res.status(404).json({ message: 'Image not found' });
+    }
+
+    // Get associated recipe to check ownership
+    const recipe = await Recipe.findById(image.recipeId);
+    if (recipe && recipe.userId &&
+        recipe.userId !== req.user.userId &&
+        req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized to modify this image' });
+    }
+
+    // Unset all other images as main for this recipe
+    await Image.updateMany(
+      { recipeId: image.recipeId },
+      { isMain: false }
+    );
+
+    // Set this image as main
+    image.isMain = true;
+    await image.save();
+
+    res.json({ message: 'Image set as main', imageId: image._id });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
@@ -116,7 +153,20 @@ router.delete('/:id', protect, async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to delete this image' });
     }
 
+    const wasMain = image.isMain;
+    const recipeId = image.recipeId;
+
     await Image.findByIdAndDelete(req.params.id);
+
+    // If we deleted the main image, set another one as main
+    if (wasMain) {
+      const nextImage = await Image.findOne({ recipeId }).sort({ order: 1 });
+      if (nextImage) {
+        nextImage.isMain = true;
+        await nextImage.save();
+      }
+    }
+
     res.json({ message: 'Image deleted' });
   } catch (err) {
     res.status(500).json({ message: err.message });

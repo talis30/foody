@@ -20,6 +20,10 @@ const imageSchema = new mongoose.Schema({
   order: {
     type: Number,
     default: 0
+  },
+  isMain: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true
